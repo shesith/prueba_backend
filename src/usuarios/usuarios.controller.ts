@@ -1,4 +1,12 @@
-import { Controller, Get, UseGuards, Request, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  Request,
+  Query,
+  Delete,
+  Param,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -46,5 +54,9 @@ export class UsuariosController {
       ...result,
       data: result.data.map(({ password, ...rest }) => rest),
     };
+  }
+  @Delete(':id')
+  async deleteUser(@Request() req, @Param('id') id: number) {
+    return this.usuariosService.deleteUser(req.user, +id);
   }
 }

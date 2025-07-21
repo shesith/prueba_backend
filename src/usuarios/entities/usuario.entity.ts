@@ -13,4 +13,5 @@ export class Usuario {
 
   @Column({ default: 'CLIENT' })
   rol: 'ADMIN' | 'CLIENT';
+  userId: number;
 }

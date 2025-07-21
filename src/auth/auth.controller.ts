@@ -13,6 +13,7 @@ import * as bcrypt from 'bcrypt';
 import { RolesGuard } from './roles.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Roles } from './roles.decorator';
 
 // AuthController maneja las rutas de autenticación
 // Incluye el inicio de sesión y el registro de usuarios
@@ -36,29 +37,54 @@ export class AuthController {
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto.email, loginDto.password);
   }
+
   @ApiOperation({
-    summary: 'Registrar usuario',
-    description:
-      'Solo ADMIN puede crear usuarios ADMIN. CLIENT puede crear usuarios CLIENT.',
+    summary: 'Registrar usuario ADMIN',
+    description: 'Solo ADMIN puede crear usuarios ADMIN.',
   })
-  @ApiResponse({ status: 201, description: 'Usuario registrado.' })
-  // Método para registrar un nuevo usuario
-  @Post('register')
+  @ApiResponse({ status: 201, description: 'Usuario ADMIN registrado.' })
+  @Post('register/admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  async register(
-    @Req() req,
-    @Body() body: { email: string; password: string; rol?: 'ADMIN' | 'CLIENT' },
-  ) {
-    // Solo ADMIN puede crear usuarios ADMIN
-    if (body.rol === 'ADMIN' && req.user.rol !== 'ADMIN') {
-      throw new ForbiddenException('Solo un ADMIN puede crear otro ADMIN');
+  @Roles('ADMIN')
+  async registerAdmin(
+    @Req() req: any,
+    @Body() body: { email: string; password: string },
+  ): Promise<any> {
+    try {
+      const hashedPassword = await bcrypt.hash(body.password, 10);
+      return await this.usuariosService['usuarioRepository'].save({
+        email: body.email,
+        password: hashedPassword,
+        rol: 'ADMIN',
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        throw new ForbiddenException(
+          'Error al crear usuario ADMIN: ' + err.message,
+        );
+      }
+      throw new ForbiddenException('Error al crear usuario ADMIN');
     }
-    // Verifica si el usuario ya existe
-    const hashedPassword = await bcrypt.hash(body.password, 10);
-    return this.usuariosService['usuarioRepository'].save({
-      email: body.email,
-      password: hashedPassword,
-      rol: body.rol || 'CLIENT',
-    });
+  }
+
+  @ApiOperation({
+    summary: 'Registrar usuario CLIENT',
+    description: 'Cualquier usuario puede crear usuarios CLIENT.',
+  })
+  @ApiResponse({ status: 201, description: 'Usuario CLIENT registrado.' })
+  @Post('register/client')
+  async registerClient(
+    @Body() body: { email: string; password: string },
+  ): Promise<any> {
+    try {
+      const hashedPassword = await bcrypt.hash(body.password, 10);
+      return await this.usuariosService['usuarioRepository'].save({
+        email: body.email,
+        password: hashedPassword,
+        rol: 'CLIENT',
+      });
+    } catch (error) {
+      throw new ForbiddenException('Error al crear usuario CLIENT');
+    }
   }
 }

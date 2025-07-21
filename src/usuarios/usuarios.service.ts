@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Usuario } from './entities/usuario.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -23,6 +27,7 @@ export class UsuariosService {
   }
 
   // Método para buscar un usuario por ID
+
   async findAllPaginated(page = 1, pageSize = 10) {
     const [data, total] = await this.usuarioRepository.findAndCount({
       order: { email: 'ASC' },
@@ -36,5 +41,29 @@ export class UsuariosService {
       pageSize,
       totalPages: Math.ceil(total / pageSize),
     };
+  }
+
+  async deleteUser(requestingUser: Usuario, id: number) {
+    const userToDelete = await this.usuarioRepository.findOne({
+      where: { id },
+    });
+    if (!userToDelete) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Si es CLIENTE, solo puede eliminarse a sí mismo
+    const reqId = requestingUser.id ?? requestingUser.userId;
+    if (requestingUser.rol === 'CLIENT' && reqId !== id) {
+      throw new ForbiddenException('No puedes eliminar otros usuarios');
+    }
+
+    // Si es CLIENTE, no puede eliminar un ADMIN
+    if (requestingUser.rol === 'CLIENT' && userToDelete.rol === 'ADMIN') {
+      throw new ForbiddenException('No puedes eliminar usuarios ADMIN');
+    }
+
+    // Si es ADMIN, puede eliminar cualquier usuario
+    await this.usuarioRepository.delete(id);
+    return { message: 'Usuario eliminado correctamente' };
   }
 }
